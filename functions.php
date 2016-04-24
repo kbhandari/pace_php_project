@@ -163,43 +163,6 @@ function activateUser($email)
 
 }
 
-function createNewMail($from, $to, $cc, $subject, $content)
-{
-    global $mysqli, $db_table_prefix;
-
-    if (!checkExistingUser($from)) {
-        return "User does not exists in the system";
-    }
-
-    $guid = getGUID();
-    $date = date("Y-m-d H:i:s");
-
-    $stmt = $mysqli->prepare(
-        "INSERT INTO " . $db_table_prefix . "mail_details (
-		guid,
-		mail_from,
-		mail_to,
-		subject,
-		cc,
-		content,
-		sent_on
-		)
-		VALUES (
-		?,
-		?,
-		?,
-		?,
-		?,
-		?,
-		?
-		)"
-    );
-    $stmt->bind_param("sssssss", $guid, $from, $to, $subject, $cc, $content, $date);
-    $result = $stmt->execute();
-    $stmt->close();
-    return $result;
-}
-
 function getGUID(){
     if (function_exists('com_create_guid')){
         return com_create_guid();
@@ -270,6 +233,100 @@ function confirmEmail($email, $validateString) {
     }
     else {
         return "invalid email status";
+    }
+}
+
+function updateThisRecord($fname, $lname, $email, $role = NULL)
+{
+    global $mysqli, $db_table_prefix;
+
+    $stmt = $mysqli->prepare(
+        "UPDATE " . $db_table_prefix . "User_Details
+		SET
+		First_Name = ?,
+		Last_Name = ?
+		WHERE
+		email = ?
+		LIMIT 1"
+    );
+    $stmt->bind_param("sss", $fname, $lname, $email);
+    $result = $stmt->execute();
+    $stmt->close();
+
+    if ($role != NULL && $result == 1) {
+        echo $role;
+        return updateRole($email, $role);
+    } else {
+        return $result;
+    }
+}
+
+function updateRole($email, $role)
+{
+    global $mysqli, $db_table_prefix;
+
+    $stmt = $mysqli->prepare(
+        "UPDATE ".$db_table_prefix."User_Role_Map
+		SET
+		Role_ID = ?
+		WHERE
+		User_ID = (select User_ID from ".$db_table_prefix."User_Details UD WHERE email = ? LIMIT 1)
+		LIMIT 1"
+    );
+    $stmt->bind_param("ss", $role, $email);
+    $result = $stmt->execute();
+    $stmt->close();
+
+    return $result;
+
+}
+
+//Destroys a session as part of logout
+function destroySession($name)
+{
+    if(isset($_SESSION[$name]))
+    {
+        $_SESSION[$name] = NULL;
+        unset($_SESSION[$name]);
+    }
+}
+
+//Check if a user is logged in
+function isUserLoggedIn()
+{
+    global $loggedInUser,$mysqli,$db_table_prefix;
+    $stmt = $mysqli->prepare("SELECT
+		User_ID,
+		Password
+		FROM ".$db_table_prefix."User_Details
+		WHERE
+		User_ID = ?
+		AND
+		Password = ?
+		AND
+		status = 'A'
+		LIMIT 1");
+    $stmt->bind_param("is", $loggedInUser->user_id, $loggedInUser->hash_pw);
+    $stmt->execute();
+    $stmt->store_result();
+    $num_returns = $stmt->num_rows;
+    $stmt->close();
+
+    if($loggedInUser == NULL)
+    {
+        return false;
+    }
+    else
+    {
+        if ($num_returns > 0)
+        {
+            return true;
+        }
+        else
+        {
+            destroySession("ThisUser");
+            return false;
+        }
     }
 }
 

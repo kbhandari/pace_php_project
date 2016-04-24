@@ -3,8 +3,65 @@
  * Created by PhpStorm.
  * User: kbhandari
  */
-?>
 
+require_once("config.php");
+
+//Prevent the user visiting the logged in page if he/she is already logged in
+if(isUserLoggedIn()) { header("Location: myaccount.php"); die(); }
+
+print_r($_POST);
+
+//Forms posted
+if(!empty($_POST))
+{
+    $email = $_POST['emailaddress'] . "@pace.edu";
+    $password = $_POST['password'];
+    $confirmPassword = $_POST['confirmPassword'];
+    $fname = $_POST['firstname'];
+    $mname = $_POST['middlename'];
+    $lname = $_POST['lastname'];
+    $contactno = $_POST['contactNo'];
+    $role = new UserRoles(UserRoles::USER);
+
+    if($email == "") {
+        $errors[] = "enter valid email";
+    }
+    if($fname == "") {
+        $errors[] = "enter valid first name";
+    }
+    if($lname == "") {
+        $errors[] = "enter valid last name";
+    }
+    if($password =="" && $confirmPassword =="") {
+        $errors[] = "enter password";
+    } else if($password != $confirmPassword) {
+        $errors[] = "password do not match";
+    }
+
+    //End data validation
+    if(count($errors) == 0) {
+        //Creating a variable to hold the "@return boolean value returned by function createNewUser - is boolean 1 with
+        //successfull and 0 when there is an error with executing the query .
+
+        $newuser = createNewUser($email, $password, $fname, $mname, $lname, $contactno, $role);
+
+        if ($newuser == 1) {
+            sendRegistrationEmail($email);
+            $_SESSION['username'] = $email;
+            //header("Location: mail_options.php");
+            //header("Location: register.php");
+            echo "<h1>User created successfully:</h1>";
+            echo "<pre>";
+            print_r($_POST);
+            echo "</pre>";
+        } else {
+            $errors[] = "Error while creating the user: " . $newuser;
+            #$_SESSION['errMsg'] = "Error while creating the user: " . $newuser;
+            #header("Location: register.php");
+        }
+    }
+}
+?>
 
 <!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Transitional//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd'>
 <html xmlns='http://www.w3.org/1999/xhtml'>
@@ -54,13 +111,12 @@
 
   <?php require_once("config.php"); ?>
 
-  <form name="createNewRecord" action="createNewRecord_DBINSERT.php" method="post">
+  <form name="createNewUser" action="<?php $_SERVER['PHP_SELF'] ?>" method="post">
   <!-- Table goes in the document BODY -->
   <table class="table-style-three">
       <div id="errMsg">
-          <?php if(!empty($_SESSION['errMsg'])) { echo $_SESSION['errMsg']; } ?>
+          <pre> <?php print_r($errors); ?></pre>
       </div>
-      <?php unset($_SESSION['errMsg']); ?>
       <thead>
       <!-- Display CRUD options in TH format -->
       <tr>

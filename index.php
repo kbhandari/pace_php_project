@@ -61,7 +61,7 @@
     <thead>
     <!-- Display CRUD options in TH format -->
     <tr>
-        <th><a href="createNewRecord.php">Sign up</a></th>
+        <th><a href="register.php">Sign up</a></th>
     </tr>
     <tr>
         <th><a href="login.php">Login</a></th>
