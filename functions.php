@@ -114,6 +114,7 @@ function fetchUserDetails($email)
 		middle_name,
 		Last_Name,
 		password,
+		contact_no,
 		created_on,
 		URM.Role_ID as Role,
 		status
@@ -125,7 +126,7 @@ function fetchUserDetails($email)
     $stmt->bind_param("s", $email);
 
     $stmt->execute();
-    $stmt->bind_result($userID, $email, $firstName, $middleName, $lastName, $password, $createdOn, $role, $status);
+    $stmt->bind_result($userID, $email, $firstName, $middleName, $lastName, $password, $contactNo, $createdOn, $role, $status);
     while ($stmt->fetch()){
         $row = array('User_ID' => $userID,
             'email' => $email,
@@ -133,6 +134,7 @@ function fetchUserDetails($email)
             'Middle_Name' => $middleName,
             'Last_Name' => $lastName,
             'Password' => $password,
+            'contact_no' => $contactNo,
             'created_on' => $createdOn,
             'Role' => $role,
             'status' => $status);
@@ -236,7 +238,7 @@ function confirmEmail($email, $validateString) {
     }
 }
 
-function updateThisRecord($fname, $lname, $email, $role = NULL)
+function updateThisRecord($userId, $fname, $lname, $email, $status, $contactNo, $role = NULL)
 {
     global $mysqli, $db_table_prefix;
 
@@ -244,12 +246,15 @@ function updateThisRecord($fname, $lname, $email, $role = NULL)
         "UPDATE " . $db_table_prefix . "User_Details
 		SET
 		First_Name = ?,
-		Last_Name = ?
+		Last_Name = ?,
+		Email = ?,
+		Status = ?,
+		Contact_no = ?
 		WHERE
-		email = ?
+		User_ID = ?
 		LIMIT 1"
     );
-    $stmt->bind_param("sss", $fname, $lname, $email);
+    $stmt->bind_param("ssssss", $fname, $lname, $email, $status, $contactNo, $userId);
     $result = $stmt->execute();
     $stmt->close();
 
@@ -261,7 +266,7 @@ function updateThisRecord($fname, $lname, $email, $role = NULL)
     }
 }
 
-function updateRole($email, $role)
+function updateRole($userId, $role)
 {
     global $mysqli, $db_table_prefix;
 
@@ -270,16 +275,17 @@ function updateRole($email, $role)
 		SET
 		Role_ID = ?
 		WHERE
-		User_ID = (select User_ID from ".$db_table_prefix."User_Details UD WHERE email = ? LIMIT 1)
+		User_ID = ?
 		LIMIT 1"
     );
-    $stmt->bind_param("ss", $role, $email);
+    $stmt->bind_param("ss", $role, $userId);
     $result = $stmt->execute();
     $stmt->close();
 
     return $result;
 
 }
+
 
 //Destroys a session as part of logout
 function destroySession($name)
@@ -330,5 +336,139 @@ function isUserLoggedIn()
     }
 }
 
+//Retrieve complete user information of all users
+function fetchAllUsers()
+{
+    global $mysqli,$db_table_prefix;
+    $stmt = $mysqli->prepare("SELECT
+		UD.User_ID as UserID,
+		Email,
+		FirstName,
+		LastName,
+		Password,
+		Created_On,
+		URM.RoleID as Role,
+		Status
+		FROM ".$db_table_prefix."User_Details UD, ".$db_table_prefix."User_Role_Map URM
+		WHERE UD.User_ID = URM.User_ID
+		");
+
+    $stmt->execute();
+    $stmt->bind_result($UserID, $UserName, $FirstName, $LastName, $Email, $Password, $MemberSince, $Role, $status);
+    while ($stmt->fetch()){
+        $row[] = array('UserID' => $UserID,
+            'UserName' => $Email,
+            'FirstName' => $FirstName,
+            'LastName' => $LastName,
+            'Email' => $Email,
+            'Password' => $Password,
+            'MemberSince' => $MemberSince,
+            'Role' => $Role,
+            'Status' => $status);
+    }
+    $stmt->close();
+    return ($row);
+}
+
+function createAd($title, $body, $contactInfo, $catId, $subCatId) {
+    global $mysqli, $db_table_prefix, $loggedInUser;
+
+    $guid = getGUID();
+
+    $stmt = $mysqli->prepare(
+        "INSERT INTO " . $db_table_prefix . "ad (
+		ad_id,
+		user_id,
+		posting_title,
+		posting_body,
+		contact_info,
+		Cat_id,
+		sub_Cat_id
+		)
+		VALUES (
+		?,
+		?,
+		?,
+		?,
+		?,
+		?,
+		?
+		)"
+    );
+    $stmt->bind_param("sssssss", $guid, $loggedInUser->user_id, $title, $body, $contactInfo, $catId, $subCatId);
+    $result = $stmt->execute();
+    $stmt->close();
+    if($result == 1) {
+        return $guid;
+    } else {
+        return $result;
+    }
+}
+
+function createHousingForRentRec($adId, $location, $postal, $ft_2, $rent, $availableOn, $beedroom, $bathroom, $laundry, $parking, $pets)
+{
+    global $mysqli, $db_table_prefix;
+
+    $guid = getGUID();
+
+    $stmt = $mysqli->prepare(
+        "INSERT INTO " . $db_table_prefix . "h_for_rent (
+		h_rent_pref_id,
+		location,
+		postal_code,
+		ft_2,
+		rent,
+		available_on,
+		bedroom,
+		bathroom,
+		laundry,
+		parking,
+		pets
+		)
+		VALUES (
+		?,
+		?,
+		?,
+		?,
+		?,
+		?,
+		?,
+		?,
+        ?,
+        ?,
+        ?
+		)"
+    );
+    $stmt->bind_param("sssssssssss", $guid, $location, $postal, $ft_2, $rent, $availableOn, $beedroom, $bathroom, $laundry, $parking, $pets);
+    $result = $stmt->execute();
+    $stmt->close();
+    if($result == 1) {
+        return mapPreference($adId, $guid);
+    } else {
+        return $result;
+    }
+}
+
+function mapPreference($adId, $prefId)
+{
+    global $mysqli, $db_table_prefix;
+
+    $stmt = $mysqli->prepare(
+        "INSERT INTO " . $db_table_prefix . "ad_pref_map (
+		ad_ID,
+		pref_ID
+		)
+		VALUES (
+		?,
+		?
+		)"
+    );
+    $stmt->bind_param("ss", $adId, $prefId);
+    //print_r($stmt);
+    $result = $stmt->execute();
+    //print_r($result);
+    $stmt->close();
+    return $result;
+}
 ?>
 

@@ -59,6 +59,7 @@ if(!empty($_POST))
 					$loggedInUser->first_name = $userdetails["First_Name"];
 				    $loggedInUser->last_name = $userdetails["Last_Name"];
 					$loggedInUser->username = $userdetails["email"];
+					$loggedInUser->contact_no = $userdetails["contact_no"];
 				  	$loggedInUser->member_since = $userdetails["created_on"];
 					$loggedInUser->role = new UserRoles($userdetails["Role"]);
 
